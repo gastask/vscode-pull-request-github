@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import { CreateParamsNew, CreatePullRequestNew } from '../../common/views';
 import { openDescription } from '../commands';
-import { commands } from '../common/executeCommands';
+import { commands, contexts } from '../common/executeCommands';
 import { ITelemetry } from '../common/telemetry';
 import { IRequestMessage } from '../common/webview';
 import { BaseCreatePullRequestViewProvider, BasePullRequestDataModel } from './createPRViewProvider';
@@ -17,7 +17,7 @@ import {
 import { BaseBranchMetadata } from './pullRequestGitHelper';
 import { PullRequestModel } from './pullRequestModel';
 
-export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
+export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProvider implements vscode.WebviewViewProvider {
 	constructor(
 		telemetry: ITelemetry,
 		model: BasePullRequestDataModel,
@@ -44,11 +44,11 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		};
 	}
 
-	protected getTitleAndDescriptionProvider(_name?: string) {
+	protected override getTitleAndDescriptionProvider(_name?: string) {
 		return undefined;
 	}
 
-	protected async getCreateParams(): Promise<CreateParamsNew> {
+	protected override async getCreateParams(): Promise<CreateParamsNew> {
 		const params = await super.getCreateParams();
 		params.canModifyBranches = false;
 		params.actionDetail = vscode.l10n.t('Reverting');
@@ -60,7 +60,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 		return openDescription(this.telemetry, this.pullRequest, undefined, this._folderRepositoryManager, false, true);
 	}
 
-	protected async _onDidReceiveMessage(message: IRequestMessage<any>) {
+	protected override async _onDidReceiveMessage(message: IRequestMessage<any>) {
 		const result = await super._onDidReceiveMessage(message);
 		if (result !== this.MESSAGE_UNHANDLED) {
 			return;
@@ -78,7 +78,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 	protected async create(message: IRequestMessage<CreatePullRequestNew>): Promise<void> {
 		let revertPr: PullRequestModel | undefined;
 		RevertPullRequestViewProvider.withProgress(async () => {
-			commands.setContext('pr:creating', true);
+			commands.setContext(contexts.CREATING, true);
 			try {
 				revertPr = await this._folderRepositoryManager.revert(this.pullRequest, message.args.title, message.args.body, message.args.draft);
 				if (revertPr) {
@@ -102,7 +102,7 @@ export class RevertPullRequestViewProvider extends BaseCreatePullRequestViewProv
 					vscode.window.showErrorMessage(vscode.l10n.t('There was an error creating the pull request: {0}', (e as Error).message));
 				}
 			} finally {
-				commands.setContext('pr:creating', false);
+				commands.setContext(contexts.CREATING, false);
 				if (revertPr) {
 					this._onDone.fire(revertPr);
 				} else {
